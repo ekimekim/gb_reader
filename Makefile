@@ -50,5 +50,11 @@ debug: build/debug/rom.gb
 bgb: build/release/rom.gb
 	bgb $<
 
+gambatte: build/release/rom.gb
+	gambatte_sdl $<
+
+copy: build/release/rom.gb
+	copy-rom music-video $<
+
 clean:
 	rm -f build/*/*.o build/*/rom.sym build/*/rom.gb rom.gb include/assets/.uptodate include/assets/*.asm tests/*/*.{asm,o,sym,gb}

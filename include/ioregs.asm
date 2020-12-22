@@ -95,6 +95,7 @@ SoundCh3Length EQU $ff1b
 SoundCh3Volume EQU $ff1c
 ; Channel 3 Frequency and general control. 11 bits of freq.
 ; The top 5 bits of the high byte are reused as control.
+; Frequency (that is, rate at which 4-bit samples are played) is calculated as 2^21/(2048-x) Hz.
 SoundCh3FreqLo EQU $ff1d
 SoundCh3Control EQU $ff1e
 ; Channel 3 custom wave data. 32 4-bit samples, upper nibble first. Runs from $ff30-$ff3f.
@@ -112,6 +113,8 @@ SoundCh4Control EQU $ff23
 ; Output channel control. For each nibble, bottom 3 bits control volume and top indicates if Vin
 ; cartridge audio should be routed to that output channel.
 ; Top nibble is left channel, bottom nibble is right channel.
+; Volume control values 0 to 7 correspond to volumes 1/8 to 8/8 respectively.
+; If you want to mute, you can turn the channel off in SoundMux instead.
 SoundVolume EQU $ff24
 ; Control of what generator channels should be routed to each output channel.
 ; For each nibble, bits 0-3 correspond to generator channels 1-4.
@@ -212,6 +215,11 @@ SpritePaletteData EQU $ff6b
 ; Also, colors are mixed oddly - sometimes changing one value will also influence others.
 ; This completes changes on GBA emulating CGB! 0-15 are almost black.
 ; One source suggests GBA-specific palettes of (CGB-value)/2 + 16.
+; One emulator (gambatte) I checked maps GBC RGB values as follows.
+; Format is: output (out of 256) = combination of inputs
+; r = (13r + 2g + b)/2
+; g = 6g + 2b
+; b = (3r + 2g + 11b)/2
 
 ; "KEY1" Game Boy Color speed switch.
 ; Bit 7 is unset/set when in normal/double speed respectively.
@@ -230,9 +238,9 @@ CGBVRAMBank EQU $ff4f
 ; eg. to transfer 256 bytes would be 256/16 - 1 = 15, and we can request lengths in the range from
 ; 16 to 2048 bytes.
 ; The top bit of the control register selects the transfer mode, which is one of:
-; General Purpose DMA: The program is halted until the transfer is complete, and normal issues around
+; 0: General Purpose DMA: The program is halted until the transfer is complete, and normal issues around
 ;   timing of VRAM writes apply. The final value of the Control register will be $ff.
-; H-Blank DMA: One 16-byte block is transferred per H-Blank period. Execution is paused while this
+; 1: H-Blank DMA: One 16-byte block is transferred per H-Blank period. Execution is paused while this
 ;	occurs but otherwise proceeds as normal. You may not modify the src/dest registers or switch
 ;   banks being read from or written to.
 ;   During the transfer, Control register will contain the value (number of blocks left - 1),
@@ -242,6 +250,9 @@ CGBVRAMBank EQU $ff4f
 ; In both modes, transfer of one block takes 2^-17s, which is 8 cycles in normal mode or 16 in fast mode.
 ; Some ROM carts may not support DMA due to not being able to handle the high speeds. There is no reliable
 ; way to check for this.
+; After each DMA, source and dest fields are updated to their values + the amount copied.
+; In the case of dest, the ignored top 3 bits are reset.
+; NOTE: Source (and dest?) regs cannot be read from, they always return ff.
 CGBDMASourceHi EQU $ff51
 CGBDMASourceLo EQU $ff52
 CGBDMADestHi EQU $ff53

@@ -110,4 +110,17 @@ ELSE
 ENDC
 ENDM
 
+; Calculate the absolute difference |\1 - \2|
+; \1 may be anything you can load into A (immediate, indirect immediate, [HL+], etc)
+; \2 must be a non-A register or [HL]
+; Outputs in A
+AbsDiff: MACRO
+	ld A, \1
+	sub \2 ; A = \1 - \2, set c if negative
+	jr nc, .positive\@
+	cpl
+	inc A ; A = ~A + 1 = -A
+.positive\@
+ENDM
+
 ENDC

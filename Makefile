@@ -3,6 +3,7 @@
 .SUFFIXES: .asm .o .gb
 .PHONY: bgb clean debug tests testroms
 
+NAME := untitled
 ASMS := $(wildcard *.asm)
 OBJS := $(ASMS:.asm=.o)
 DEBUGOBJS := $(addprefix build/debug/,$(OBJS))
@@ -10,6 +11,7 @@ RELEASEOBJS := $(addprefix build/release/,$(OBJS))
 INCLUDES := $(wildcard include/*.asm)
 ASSETS := $(shell find assets/ -type f)
 TESTS := $(wildcard tests/*.py)
+FIXARGS :=
 
 all: build/release/rom.gb
 
@@ -35,11 +37,11 @@ build/release/%.o: %.asm $(INCLUDES) include/assets/.uptodate build/release
 build/debug/rom.gb: $(DEBUGOBJS)
 # note padding with 0x40 = ld b, b = BGB breakpoint
 	rgblink -n $(@:.gb=.sym) -o $@ -p 0x40 $^
-	rgbfix -v -p 0x40 $@
+	rgbfix -v -p 0x40 $(FIXARGS) $@
 
 build/release/rom.gb: $(RELEASEOBJS)
 	rgblink -n $(@:.gb=.sym) -o $@ $^
-	rgbfix -v -p 0 $@
+	rgbfix -v -p 0 $(FIXARGS) $@
 
 build/debug build/release:
 	mkdir -p $@
@@ -54,7 +56,7 @@ gambatte: build/release/rom.gb
 	gambatte_sdl $<
 
 copy: build/release/rom.gb
-	copy-rom music-video $<
+	copy-rom $(NAME) $<
 
 clean:
 	rm -f build/*/*.o build/*/rom.sym build/*/rom.gb rom.gb include/assets/.uptodate include/assets/*.asm tests/*/*.{asm,o,sym,gb}

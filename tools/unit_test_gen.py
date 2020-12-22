@@ -26,6 +26,30 @@ class Memory(object):
 		# this is needed for passing in binary strings
 		self.contents = [ord(x) if isinstance(x, basestring) else x for x in contents]
 
+	def as_rle(self):
+		"""Yield a list of (count, value) which expresses the memory contents using Run Length Encoding"""
+		if not self.contents:
+			return
+		prev = self.contents[0]
+		count = 1
+		for value in self.contents[1:]:
+			if value == prev:
+				count += 1
+				continue
+			yield count, prev
+			prev = value
+			count = 1
+		yield count, prev
+
+	def __repr__(self):
+		to_hex = lambda value: "??" if value is None else "{:02x}".format(value)
+		return "<Memory {}>".format(
+			" ".join(
+				to_hex(value) if count == 1 else "{}x{}".format(count, to_hex(value))
+				for count, value in self.as_rle()
+			)
+		)
+
 
 test_order = 0
 class Test(object):
@@ -289,7 +313,12 @@ def process_file(top_level_dir, include_dir, tests_dir, extra_link_dirs, objs_di
 	link_paths = [os.path.join(top_level_dir, '{}.o'.format(link_file)) for link_file in link_files]
 
 	gendir = os.path.join(tests_dir, name)
-	if not os.path.exists(gendir):
+	if os.path.exists(gendir):
+		# Delete existing contents to clear stale tests
+		for filename in os.listdir(gendir):
+			if any(filename.endswith(ext) for ext in ['.asm', '.o', '.sym', '.gb']):
+				os.remove(os.path.join(gendir, filename))
+	else:
 		os.mkdir(gendir)
 
 	for i, (testname, test) in enumerate(sorted(tests.items(), key=lambda (n,t): t.order)):
@@ -308,7 +337,7 @@ def process_file(top_level_dir, include_dir, tests_dir, extra_link_dirs, objs_di
 		cmd(['rgbfix', '-v', '-p', '0x40', rom_path])
 
 
-def main(top_level_dir, include_dir='include/', tests_dir='tests', extra_link_dirs='tasks', objs_dir='build/debug'):
+def main(top_level_dir, include_dir='include/', tests_dir='tests', extra_link_dirs='', objs_dir='build/debug'):
 	include_dir = os.path.join(top_level_dir, include_dir)
 	tests_dir = os.path.join(top_level_dir, tests_dir)
 	extra_link_dirs = (

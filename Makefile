@@ -1,7 +1,7 @@
 
 # avoid implicit rules for clarity
 .SUFFIXES: .asm .o .gb
-.PHONY: bgb clean tests testroms debug
+.PHONY: bgb clean debug tests testroms
 
 ASMS := $(wildcard *.asm)
 OBJS := $(ASMS:.asm=.o)
@@ -11,11 +11,7 @@ INCLUDES := $(wildcard include/*.asm)
 ASSETS := $(shell find assets/ -type f)
 TESTS := $(wildcard tests/*.py)
 
-all: build/release/rom.gb tests/.uptodate
-
-include/assets/.uptodate: $(ASSETS) tools/assets_to_asm.py
-	python tools/assets_to_asm.py assets/ include/assets/
-	touch $@
+all: build/release/rom.gb
 
 tests/.uptodate: $(TESTS) tools/unit_test_gen.py $(DEBUGOBJS)
 	python tools/unit_test_gen.py .
@@ -24,7 +20,11 @@ tests/.uptodate: $(TESTS) tools/unit_test_gen.py $(DEBUGOBJS)
 testroms: tests/.uptodate
 
 tests: testroms
-	./runtests
+	tools/runtests
+
+include/assets/.uptodate: $(ASSETS) tools/assets_to_asm.py
+	python tools/assets_to_asm.py assets/ include/assets/
+	touch $@
 
 build/debug/%.o: %.asm $(INCLUDES) include/assets/.uptodate build/debug
 	rgbasm -DDEBUG=1 -i include/ -v -o $@ $<

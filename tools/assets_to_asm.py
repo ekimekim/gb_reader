@@ -71,7 +71,10 @@ def image_to_tiles(image, pallette, length=None):
 
 	if len(pallette) != 4:
 		raise ValueError("pallette must be exactly 4 items")
-	pallette = {value: index for index, value in enumerate(pallette)}
+	pallette = {
+		tuple(value) if isinstance(value, list) else value: index
+		for index, value in enumerate(pallette)
+	}
 
 	tiles = []
 	for row in range(height / 8):

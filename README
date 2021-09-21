@@ -27,10 +27,10 @@ Keeping track of page or line count may be tricky given line definition is dynam
 	byte offset and line count, and hope we don't get out of sync?
 	Or just forget counting lines and always use byte offset.
 
-Word wrapping is pre-baked at build time. Storage format is 0-20 chars, then \n.
+Word wrapping is pre-baked at build time. Storage format is 0-20 chars, then \0.
 Process of rendering a line to vram:
 	for each char:
-		if char is \n, break
+		if char is \0, break
 		copy char to screen
 	copy spaces to screen until we've copied 20 chars
 Loose estimate of timing: if we can average 10cyc/char, 200 cyc/line which allows

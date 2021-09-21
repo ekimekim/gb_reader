@@ -77,6 +77,7 @@ ENDR
 ; and advance ReadHead and DE.
 ; It is up to the caller to update ReadTail to account for any overwritten value,
 ; or to scroll / update ReadTopRow.
+; Worst case takes 9 (prelude) + 15*9 (loop) + 12 (last loop, taking jump) + 26 (cleanup) = 182 cycles
 DrawNextLine:
 	ret ; TODO. copy-pasted from elsewhere:
 	ld HL, ReadHeadBank
@@ -89,38 +90,78 @@ DrawNextLine:
 
 
 ; Render the line starting at HL to tilemap at row starting at DE.
-; C must be set to "\n" (this is preserved to speed up repeated calls).
-; Advances HL and DE to start of next line / next row.
-; Worst case cycle count: 249 not counting call or ret.
+; Advances DE and HL to start of next line / next row.
+; Interrupts must be disabled.
 DrawLine:
 	; We copy chars until we find a newline, then switch to copying spaces.
 	; If we don't find a newline within 20 chars, assume next one is one.
-	ld B, 20
-.copy_loop
-	ld A, [HL+]
-	cp C ; set z if newline
-	jr z, .break
-	ld [DE], A ; copy char to tilemap
-	inc E ; safe since rows are aligned, E won't wrap except at end of row (and we only go to 20)
-	dec B
-	jr nz, .copy_loop
 
-	; skip next char as it must be a newline
-	inc HL
-.post_copy
-	; DE += 12. This may wrap, and manually carrying is expensive (and so is setting up a 16-bit add),
-	; so we first add 11 to E (won't carry) then inc DE.
-	ld A, 11
-	add E
-	ld E, A
-	inc DE
+	; Stash SP, transfer HL into SP, then DE into HL.
+	ld [SavedStack], SP
+	ld SP, HL
+	ld H, D
+	ld L, E
 
-.break
-	; Fill remainder of line with spaces. We know B is not 0 here.
-	; We also know A = \n, which renders as a space. So we fill with that.
-.fill_loop
-	ld [DE], A
-	inc E ; safe, see above
-	dec B
-	jr nz, .fill_loop
-	jr .post_copy
+	; Cleanup code ends up repeated in a few places.
+	; We need to set DE to HL+12 or +13 (\1 = 11 or 12),
+	; and HL to SP or SP-1 (\2 = SP or SP-1).
+_Cleanup: MACRO
+	ld D, H
+	ld A, \1
+	add L
+	ld E, A ; DE = HL + 11. We know this won't wrap because HL is only 20 through a 32-byte aligned row.
+	inc DE ; then finally increment for a total of +12. this one might carry.
+	ld HL, \2
+	ld B, H
+	ld C, L ; BC = HL, stashed while we restore SP
+	ld A, [SavedStack]
+	ld L, A
+	ld A, [SavedStack+1]
+	ld H, A ; HL = [SavedStack]
+	ld SP, HL ; restore SP
+	ld H, B
+	ld L, C ; HL = BC
+ENDM
+
+	; now SP = line data, HL = tilemap
+SET copied = 0
+REPT 9
+	pop DE ; get 2 chars, E then D
+	ld A, E
+	and A ; set z if 0
+	jr z, .fill_even + copied
+	ld [HL+], A
+	ld A, D
+	and A ; set z if 0
+	jr z, .fill_odd + copied
+	ld [HL+], A
+SET copied = copied + 2
+ENDR
+	; final loop is special-cased, no need to jump to fill if only the last value needs it
+	pop DE ; get 2 chars, E then D
+	ld A, E
+	and A ; set z if 0
+	jr z, .fill_even + copied
+	ld [HL+], A
+	; if D is 0, we're writing the blank as needed. if not we're writing the last char.
+	; we'll need to inc HL by 1 extra during cleanup since we're skipping the inc HL here.
+	ld [HL], D
+
+	_Cleanup 12, SP
+	ret
+
+; These runs copying A to HL are jumped into depending on how many tiles we've already filled.
+; Note in the even case we need to adjust SP back by 1 as we overshot.
+.fill_even
+REPT 20
+	ld [HL+], A
+ENDR
+	_Cleanup 11, SP-1
+	ret
+
+.fill_odd
+REPT 19
+	ld [HL+], A
+ENDR
+	_Cleanup 11, SP
+	ret

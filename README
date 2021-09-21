@@ -27,7 +27,7 @@ Keeping track of page or line count may be tricky given line definition is dynam
 	byte offset and line count, and hope we don't get out of sync?
 	Or just forget counting lines and always use byte offset.
 
-Word wrapping is pre-baked at build time. Storage format is 0-20 chars then \n.
+Word wrapping is pre-baked at build time. Storage format is 0-20 chars, then \n.
 Process of rendering a line to vram:
 	for each char:
 		if char is \n, break
@@ -58,3 +58,7 @@ Process for updating screen on each action:
 		render previous 18 rows over multiple frames
 		then scroll up 18 lines
 		extra work: hiding the update until the scroll is ready
+
+To reduce special casing, we handle book start/end with padding.
+Data must always start with a blank line, and end with 32 blank lines.
+We do validation before user actions that the user doesn't scroll before start or after end.

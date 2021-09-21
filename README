@@ -1,0 +1,60 @@
+gb_reader is a project that attempts to make the Gameboy an e-reader.
+As part of the build process, you provide a text document.
+The built rom will allow reading that text document.
+
+Features
+	Most of the screen should be text lines.
+	Words should be wrapped correctly.
+	The bottom row should be blank with a page or line number indicator on the right.
+		For technical reasons this should probably be a character offset.
+	The page or line we're up to should be saved to SRAM.
+	Do we want a concept of a "page break" for chapters?
+
+Controls
+	up/down: scroll lines
+	left/right: flip pages
+	menu for goto line? difficult due to issues counting lines.
+		goto byte offset instead.
+
+== Technical notes ==
+
+Some form of compression for the text is probably a good idea
+	Actually after running the numbers, easier not to and everything still fits.
+	255 banks = 4080KiB ~= 500k words ~= a large novel
+
+Keeping track of page or line count may be tricky given line definition is dynamic
+	based on word wrapping. Maybe just use dead reckoning, when saving save both
+	byte offset and line count, and hope we don't get out of sync?
+	Or just forget counting lines and always use byte offset.
+
+Word wrapping is pre-baked at build time. Storage format is 0-20 chars then \n.
+Process of rendering a line to vram:
+	for each char:
+		if char is \n, break
+		copy char to screen
+	copy spaces to screen until we've copied 20 chars
+Loose estimate of timing: if we can average 10cyc/char, 200 cyc/line which allows
+approx 5 lines/vblank.
+
+Keep 32 lines rendered in tile map, with scroll set to show second line onwards.
+We track top and bottom rendered lines as (bank, addr) pointers.
+
+Process for updating screen on each action:
+	scroll down:
+		advance scrollY by 1 line (it's already rendered)
+		render next line on bottom and advance top and bottom pointers
+	scroll up:
+		reverse scrollY by 1 line (it's already rendered)
+		render previous line on top and backtrack top and bottom pointers
+	flip forward:
+		render next 5 lines (only takes 1 frame)
+		relative to previous top line, we now have rendered lines 5-36 (inclusive)
+			previously we were showing lines 1-18.
+		advance scrollY by 18 lines, so we're showing lines 19-36. from user's perspective we're
+			done in 1 frame.
+		over the next 3 frames, update 12 more lines ahead, bringing us back to steady state.
+	flip back:
+		intentionally unoptimized compared to other actions
+		render previous 18 rows over multiple frames
+		then scroll up 18 lines
+		extra work: hiding the update until the scroll is ready

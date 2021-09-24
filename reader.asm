@@ -1,10 +1,12 @@
 
 include "macros.asm"
+include "hram.asm"
 
 SECTION "Reader state", SRAM
 
 ; These 8 bytes must match "gbreader". If they don't, we assume SRAM is uninitialized.
-SaveMagic ds 8
+SaveMagic:
+	ds 8
 
 ; Head refers to the position immediately following the most-forward rendered line.
 ; Tail refers to the position at the start of the most-back rendered line.
@@ -12,17 +14,22 @@ SaveMagic ds 8
 ; be a ROMX addr (ie. 0x4000-0x7fff).
 ; Note only tail is saved - head should always be 32 lines ahead of it
 ; and is only tracked as an optimization.
-ReadTailBank ds 1
-ReadTailAddr ds 2
+ReadTailBank:
+	ds 1
+ReadTailAddr:
+	ds 2
 
-SECTION "Reader RAM", WRAM
+SECTION "Reader RAM", WRAM0
 
-ReadHeadBank ds 1
-ReadHeadAddr ds 2
+ReadHeadBank:
+	ds 1
+ReadHeadAddr:
+	ds 2
 
 SECTION "Reader methods", ROM0
 
-SaveMagicCheck db "gbreader"
+SaveMagicCheck:
+	db "gbreader"
 
 ; Initialize graphics and other state.
 ; Assumes screen is off.
@@ -61,7 +68,7 @@ SRAMInit:
 .magic_check
 	ld A, [DE]
 	cp [HL]
-	jr nz, .magic_fail
+	jr nz, .magic_failed
 	inc DE
 	inc HL
 	dec B
@@ -131,9 +138,9 @@ DrawNextLines:
 	; this is a little faster than a read/inc/write
 	ld HL, ReadHeadBank
 	inc [HL]
-	ld A, HL
+	ld A, [HL]
 	; update the loaded back too
-	SetRomBank
+	SetROMBank
 	; reset read head to start of ROMX
 	ld HL, $4000
 	jr .advance_bank_return
@@ -163,7 +170,7 @@ _Cleanup: MACRO
 	add L
 	ld E, A ; DE = HL + 11. We know this won't wrap because HL is only 20 through a 32-byte aligned row.
 	inc DE ; then finally increment for a total of +12. this one might carry.
-	ld HL, \2
+	ld HL, SP+(\2)
 	ld B, H
 	ld C, L ; BC = HL, stashed while we restore SP
 	ld A, [SavedStack]
@@ -176,7 +183,7 @@ _Cleanup: MACRO
 ENDM
 
 	; now SP = line data, HL = tilemap
-SET copied = 0
+copied = 0
 REPT 9
 	pop DE ; get 2 chars, E then D
 	ld A, E
@@ -187,7 +194,7 @@ REPT 9
 	and A ; set z if 0
 	jr z, .fill_odd + copied
 	ld [HL+], A
-SET copied = copied + 2
+copied = copied + 2
 ENDR
 	; final loop is special-cased, no need to jump to fill if only the last value needs it
 	pop DE ; get 2 chars, E then D
@@ -199,7 +206,7 @@ ENDR
 	; we'll need to inc HL by 1 extra during cleanup since we're skipping the inc HL here.
 	ld [HL], D
 
-	_Cleanup 12, SP
+	_Cleanup 12, 0
 	ret
 
 ; These runs copying A to HL are jumped into depending on how many tiles we've already filled.
@@ -208,12 +215,12 @@ ENDR
 REPT 20
 	ld [HL+], A
 ENDR
-	_Cleanup 11, SP-1
+	_Cleanup 11, -1
 	ret
 
 .fill_odd
 REPT 19
 	ld [HL+], A
 ENDR
-	_Cleanup 11, SP
+	_Cleanup 11, 0
 	ret

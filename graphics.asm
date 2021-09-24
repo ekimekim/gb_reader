@@ -1,3 +1,6 @@
+include "macros.asm"
+include "vram.asm"
+include "ioregs.asm"
 
 SECTION "Graphics textures", ROM0
 
@@ -7,6 +10,8 @@ GraphicsTextures:
 REPT 32
 REPT 8
 	dw `00000000
+ENDR
+ENDR
 
 ; printable ascii
 include "assets/font.asm"

@@ -26,5 +26,17 @@ Start::
 	; Use core stack
 	ld SP, CoreStack
 
+	call GraphicsInit
+	call ReadInit
+
+	; Basic graphics: background on, unsigned tilemap
+	ld A, %10010001
+	ld [LCDControl], A
+
+	; Disable all interrupts but enable interrupt flag.
+	; This makes halt a true halt forever.
+	xor A
+	ld [InterruptsEnabled], A
+	ei
 
 	jp HaltForever

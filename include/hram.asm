@@ -3,6 +3,9 @@ _G_HRAM EQU "true"
 
 RSSET $ff80
 
+; Scratch for storing stack pointer during shennanigans
+SavedStack rb 2
+
 ; The row number in tilemap which is the current most-back rendered line.
 ReadTopRow rb 1
 

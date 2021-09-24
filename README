@@ -28,6 +28,8 @@ Keeping track of page or line count may be tricky given line definition is dynam
 	Or just forget counting lines and always use byte offset.
 
 Word wrapping is pre-baked at build time. Storage format is 0-20 chars, then \0.
+Each bank's data must end with padding of \xFF to indicate next bank. Banks must end at the
+end of a line.
 Process of rendering a line to vram:
 	for each char:
 		if char is \0, break

@@ -10,11 +10,15 @@ SaveMagic ds 8
 ; Tail refers to the position at the start of the most-back rendered line.
 ; Each is a pair consisting of a bank byte and an addr. Addr is assumed to always
 ; be a ROMX addr (ie. 0x4000-0x7fff).
-ReadHeadBank ds 1
-ReadHeadAddr ds 2
+; Note only tail is saved - head should always be 32 lines ahead of it
+; and is only tracked as an optimization.
 ReadTailBank ds 1
 ReadTailAddr ds 2
 
+SECTION "Reader RAM", WRAM
+
+ReadHeadBank ds 1
+ReadHeadAddr ds 2
 
 SECTION "Reader methods", ROM0
 
@@ -25,16 +29,25 @@ SaveMagicCheck db "gbreader"
 ReadInit::
 	call SRAMInit
 
+	; Init read head to read tail as we're currently showing no lines.
+	; We'll advance it to 32 lines ahead later.
+	ld A, [ReadTailBank]
+	ld [ReadHeadBank], A
+	ld A, [ReadTailAddr]
+	ld [ReadHeadAddr], A
+	ld A, [ReadTailAddr+1]
+	ld [ReadHeadAddr+1], A
+
 	; Start drawing lines from row 0.
+	; We start scrolled down by 1 row as per our "showing rows 1-18" invariant.
 	xor A
-	ld [ScrollY], A
 	ld [ReadTopRow], A
+	ld A, 8
+	ld [ScrollY], A
 
 	; Draw initial 32 lines
-	ld B, 0
-REPT 32
-	call DrawNextLine
-ENDR
+	ld B, 32
+	call DrawNextLines
 
 	ret
 
@@ -58,12 +71,14 @@ SRAMInit:
 	ret
 
 .magic_failed
-	; init head and tail
-	xor A
+	; init tail to (1, $4000)
 	ld HL, ReadHeadBank
-REPT 6
-	ld [HL+], A
-ENDR
+	ld A, 1
+	ld [ReadTailBank], A
+	ld A, $40
+	ld [ReadTailAddr], A
+	xor A
+	ld [ReadTailAddr+1], A
 	; write magic. we only do this once sram is initialized to prevent races.
 	ld HL, SaveMagicCheck
 	ld DE, SaveMagic
@@ -73,25 +88,62 @@ ENDR
 	ret
 
 
-; Render the line starting at ReadHead to screen at TileGrid pointer DE,
+; Render B lines starting at ReadHead to screen at TileGrid pointer DE,
 ; and advance ReadHead and DE.
 ; It is up to the caller to update ReadTail to account for any overwritten value,
 ; or to scroll / update ReadTopRow.
-; Worst case takes 9 (prelude) + 15*9 (loop) + 12 (last loop, taking jump) + 26 (cleanup) = 182 cycles
-DrawNextLine:
-	ret ; TODO. copy-pasted from elsewhere:
-	ld HL, ReadHeadBank
-	ld A, [HL+] ; A = bank, HL = ReadHeadAddr
-	SetRomBank
+DrawNextLines:
+	; Ensure correct bank is loaded
+	ld A, [ReadHeadBank]
+	SetROMBank
+	; Load ReadHead into HL
+	ld A, [ReadHeadAddr]
+	ld H, A
+	ld A, [ReadHeadAddr+1]
+	ld L, A
 
-	ld A, [HL+]
-	ld L, [HL]
-	ld H, A	; HL = [ReadHeadAddr]
+.loop
+	; Draw the line, advance HL and DE
+	push BC
+	call DrawLine
+	pop BC
+
+	; Check if next char is end-of-bank
+	ld A, [HL]
+	inc A ; if [HL] == ff, set z
+	jr z, .advance_bank
+
+.advance_bank_return
+	dec B
+	jr nz, .loop
+
+	; Save ReadHead. Note we've already checked it's not at end of bank,
+	; so we don't need to worry about checking at the start of next time.
+	ld A, H
+	ld [ReadHeadAddr], A
+	ld A, L
+	ld [ReadHeadAddr], A
+
+	ret
+
+.advance_bank
+	; update the saved bank
+	; this is a little faster than a read/inc/write
+	ld HL, ReadHeadBank
+	inc [HL]
+	ld A, HL
+	; update the loaded back too
+	SetRomBank
+	; reset read head to start of ROMX
+	ld HL, $4000
+	jr .advance_bank_return
 
 
 ; Render the line starting at HL to tilemap at row starting at DE.
 ; Advances DE and HL to start of next line / next row.
 ; Interrupts must be disabled.
+; Worst case takes 9 (prelude) + 15*9 (loop) + 12 (last loop, taking jump) + 24 (cleanup) = 180 cycles
+; TODO: Combining this with DrawNextLines could save most setup and cleanup.
 DrawLine:
 	; We copy chars until we find a newline, then switch to copying spaces.
 	; If we don't find a newline within 20 chars, assume next one is one.

@@ -1,0 +1,5 @@
+*.gb
+*.sym
+*.o
+
+include/assets/*

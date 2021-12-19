@@ -1,6 +1,7 @@
 
 include "macros.asm"
 include "hram.asm"
+include "ioregs.asm"
 
 SECTION "Reader state", SRAM
 
@@ -145,25 +146,10 @@ DrawNextLines:
 	ld HL, $4000
 	jr .advance_bank_return
 
-
-; Render the line starting at HL to tilemap at row starting at DE.
-; Advances DE and HL to start of next line / next row.
-; Interrupts must be disabled.
-; Worst case takes 9 (prelude) + 15*9 (loop) + 12 (last loop, taking jump) + 24 (cleanup) = 180 cycles
-; TODO: Combining this with DrawNextLines could save most setup and cleanup.
-DrawLine:
-	; We copy chars until we find a newline, then switch to copying spaces.
-	; If we don't find a newline within 20 chars, assume next one is one.
-
-	; Stash SP, transfer HL into SP, then DE into HL.
-	ld [SavedStack], SP
-	ld SP, HL
-	ld H, D
-	ld L, E
-
-	; Cleanup code ends up repeated in a few places.
-	; We need to set DE to HL+12 or +13 (\1 = 11 or 12),
-	; and HL to SP or SP-1 (\2 = SP or SP-1).
+; Used in DrawLine.
+; Cleanup code ends up repeated in a few places.
+; We need to set DE to HL+12 or +13 (\1 = 11 or 12),
+; and HL to SP or SP-1 (\2 = SP or SP-1).
 _Cleanup: MACRO
 	ld D, H
 	ld A, \1
@@ -182,6 +168,31 @@ _Cleanup: MACRO
 	ld L, C ; HL = BC
 ENDM
 
+; Used in DrawLine.
+; Needs to be before instead of after main function to be in range
+; of a relative jump.
+_fill_odd:
+REPT 19
+	ld [HL+], A
+ENDR
+	_Cleanup 11, 0
+	ret
+
+; Render the line starting at HL to tilemap at row starting at DE.
+; Advances DE and HL to start of next line / next row.
+; Interrupts must be disabled.
+; Worst case takes 9 (prelude) + 15*9 (loop) + 12 (last loop, taking jump) + 24 (cleanup) = 180 cycles
+; TODO: Combining this with DrawNextLines could save most setup and cleanup.
+DrawLine:
+	; We copy chars until we find a newline, then switch to copying spaces.
+	; If we don't find a newline within 20 chars, assume next one is one.
+
+	; Stash SP, transfer HL into SP, then DE into HL.
+	ld [SavedStack], SP
+	ld SP, HL
+	ld H, D
+	ld L, E
+
 	; now SP = line data, HL = tilemap
 copied = 0
 REPT 9
@@ -192,7 +203,7 @@ REPT 9
 	ld [HL+], A
 	ld A, D
 	and A ; set z if 0
-	jr z, .fill_odd + copied
+	jr z, _fill_odd + copied
 	ld [HL+], A
 copied = copied + 2
 ENDR
@@ -218,9 +229,3 @@ ENDR
 	_Cleanup 11, -1
 	ret
 
-.fill_odd
-REPT 19
-	ld [HL+], A
-ENDR
-	_Cleanup 11, 0
-	ret

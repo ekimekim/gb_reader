@@ -27,39 +27,38 @@ Keeping track of page or line count may be tricky given line definition is dynam
 	byte offset and line count, and hope we don't get out of sync?
 	Or just forget counting lines and always use byte offset.
 
-Word wrapping is pre-baked at build time. Storage format is 0-20 chars, then \0.
+Fixed-width fonts are just too wide. You can only fit a handful of words per line.
+Instead we use a variable-width font. This font is heavily pre-processed to save cycles.
+We keep 8 versions of a 2-tile wide version of each char. Each version starts at a different
+bit offset. When rendering, we track the current bit offset we're up to within the current tile,
+and OR the next char into that byte's data, then using any carryover as the start of the next tile.
+
+We should render lines into a staging area for copy over to vram during vblank.
+We can save some time here by only using 2 colors, 00 and 11. Under the gameboy pixel format this
+lets us copy source data of 0 or 1 to vram by copying every byte twice:
+	pop DE
+	ld A, D
+	ld [HL+], A
+	ld [HL+], A
+	ld A, E
+	ld [HL+], A
+	ld [HL+], A
+which gives us 6.5 cycles/byte read, and 3.25 cycles/byte written.
+With double-speed CPU we have 2280 cyc/vblank, ~700 bytes = ~43 tiles = ~2 rows
+Assuming this is our bottleneck it will take 9 frames (150ms) to draw a screen.
+We can do better with DMA, will need to work out what's faster compared to rendering
+directly into a 16-byte format.
+
+This will require use of a "fully memory mapped" screen configuration, where every tile texture maps to
+a unique tile on screen. This is doable by using the background + the window to use both the signed
+and unsigned tilemap areas. With 24 tiles left over, we can even have a pre-rendered next line.
+Another interesting option is the CGB's second tile bank. This may allow us to set up a double-buffering
+type scheme where we render the next page in the background and on flip, all we need to do is DMA
+over the flag flipping to the other tile bank, which is doable in a single vblank.
+
+Word wrapping is pre-baked at build time. Storage format is some number of chars, then \0.
 Each bank's data must end with padding of \xFF to indicate next bank. Banks must end at the
 end of a line.
-Process of rendering a line to vram:
-	for each char:
-		if char is \0, break
-		copy char to screen
-	copy spaces to screen until we've copied 20 chars
-Loose estimate of timing: if we can average 10cyc/char, 200 cyc/line which allows
-approx 5 lines/vblank.
-
-Keep 32 lines rendered in tile map, with scroll set to show second line onwards.
-We track top and bottom rendered lines as (bank, addr) pointers.
-
-Process for updating screen on each action:
-	scroll down:
-		advance scrollY by 1 line (it's already rendered)
-		render next line on bottom and advance top and bottom pointers
-	scroll up:
-		reverse scrollY by 1 line (it's already rendered)
-		render previous line on top and backtrack top and bottom pointers
-	flip forward:
-		render next 5 lines (only takes 1 frame)
-		relative to previous top line, we now have rendered lines 5-36 (inclusive)
-			previously we were showing lines 1-18.
-		advance scrollY by 18 lines, so we're showing lines 19-36. from user's perspective we're
-			done in 1 frame.
-		over the next 3 frames, update 12 more lines ahead, bringing us back to steady state.
-	flip back:
-		intentionally unoptimized compared to other actions
-		render previous 18 rows over multiple frames
-		then scroll up 18 lines
-		extra work: hiding the update until the scroll is ready
 
 To reduce special casing, we handle book start/end with padding.
 Data must always start with a blank line, and end with 32 blank lines.

@@ -29,8 +29,9 @@ Start::
 	call GraphicsInit
 	call ReadInit
 
-	; Basic graphics: background on, unsigned tilemap
-	ld A, %10010001
+	; Enable graphics
+	ld A, [LCDControl]
+	or %10000000
 	ld [LCDControl], A
 
 	; Disable all interrupts but enable interrupt flag.

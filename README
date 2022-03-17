@@ -50,11 +50,7 @@ We can do better with DMA, will need to work out what's faster compared to rende
 directly into a 16-byte format.
 
 This will require use of a "fully memory mapped" screen configuration, where every tile texture maps to
-a unique tile on screen. This is doable by using the background + the window to use both the signed
-and unsigned tilemap areas. With 24 tiles left over, we can even have a pre-rendered next line.
-Another interesting option is the CGB's second tile bank. This may allow us to set up a double-buffering
-type scheme where we render the next page in the background and on flip, all we need to do is DMA
-over the flag flipping to the other tile bank, which is doable in a single vblank.
+a unique tile on screen. This is doable by using the CGB's second vram bank.
 
 Word wrapping is pre-baked at build time. Storage format is some number of chars, then \0.
 Each bank's data must end with padding of \xFF to indicate next bank. Banks must end at the

@@ -1,5 +1,5 @@
 
-SECTION "Test text data", ROMX[$4000], BANK[1]
+SECTION "Test text data", ROMX[$4000], BANK[2]
 
 Line: MACRO
 	db "\1"

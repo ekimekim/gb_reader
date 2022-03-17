@@ -57,6 +57,7 @@ def main(filepath):
 			tables += render_rendition(pixels, rendition) # returns 16-byte rendition as list of ints
 
 	data = sizes + [0] * (256 - len(sizes)) + tables
+	assert len(data) < 2**14
 	for byte in data:
 		assert 0 <= byte < 256
 		print "db {}".format(byte)

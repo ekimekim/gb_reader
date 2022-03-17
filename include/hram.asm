@@ -3,6 +3,8 @@ _G_HRAM EQU "true"
 
 RSSET $ff80
 
+Scratch rb 1
+
 ; Scratch for storing stack pointer during shennanigans
 SavedStack rb 2
 

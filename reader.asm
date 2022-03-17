@@ -79,7 +79,7 @@ SRAMInit:
 	ret
 
 .magic_failed
-	; init tail to (1, $4000)
+	; init tail to (2, $4000)
 	ld HL, ReadHeadBank
 	ld A, 1
 	ld [ReadTailBank], A

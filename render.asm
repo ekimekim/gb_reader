@@ -1,18 +1,47 @@
+include "hram.asm"
+include "ioregs.asm"
+
+SECTION "Font data", ROMX[$4000], BANK[1]
+
+FontData EQUS "(FontWidths + 256)"
+FontWidths:
+
+include "assets/varfont.asm"
 
 SECTION "Text rendering methods", ROM0
 
 
 ; Renders 20 lines from DE to the staging data area.
+; Note: Clobbers loaded WRAM and ROM banks.
 RenderScreen::
-	ld
+	; First 10 lines go into first staging area
+	ld A, Bank(StagingData)
+	ld [CGBWRAMBank], A
+	ld HL, StagingData
+REPT 10
+	call RenderLine
+ENDR
+	; Second 10 lines go into second staging area
+	ld A, Bank(StagingData2)
+	ld [CGBWRAMBank], A
+	ld HL, StagingData2
+REPT 10
+	call RenderLine
+ENDR
+	ret
 
 
 ; Renders a single line of text to the staging data area. Inputs:
 ;   HL: Points to first tile of the line in the staging data area (WRAM bank should already be set)
 ;   DE: Points to the first char of the line of text to render (which must be accessibly with current rom bank)
 ; Current rom bank must be the font data.
+; On return:
+;   HL: Points to first tile of next line
+;   DE: Points to first char of next line
 RenderLine:
 	ld B, 0 ; 32 * current rendition
+	ld A, 20
+	ld [Scratch], A ; number of tiles in this row still uninitialized
 
 .render_char
 	ld A, [DE] ; load character
@@ -72,6 +101,11 @@ ENDR
 	; first char).
 	jr z, .skip_overflow
 
+	; First time writing to a tile, decrement [Scratch]
+	ld A, [Scratch]
+	dec A
+	ld [Scratch], A
+
 	; for each row of character pixels in second half, copy them without OR-ing
 	; (overwriting old values)
 REPT 8
@@ -95,6 +129,11 @@ ENDR
 	jr .render_char
 
 .overwrite
+	; First time writing to a tile, decrement [Scratch]
+	ld A, [Scratch]
+	dec A
+	ld [Scratch], A
+
 REPT 8
 	; get pixels for row
 	ld A, [DE]
@@ -106,4 +145,29 @@ ENDR
 
 .newline
 	; From here we need to fill the rest of the line with blank.
-	; TODO
+	; First, we need to check if the current tile is partially written, by checking the rendition in B.
+	ld A, B
+	and A ; set z if 0
+	jr z, .no_next_tile
+
+	; Advance HL to the next tile. Reverse of earlier "reset HL" op, uses the fact it's 16-byte aligned.
+	ld A, L
+	add 15
+	ld L, A
+	inc HL
+
+.no_next_tile
+	; We've saved the number of remaining uninitialized tiles in Scratch, which may be 0.
+	ld A, [Scratch]
+	and A ; set z if 0
+	ret z ; if we've written to all tiles, we're done
+	xor A
+
+.blank_loop
+REPT 16
+	ld [HL+], A
+ENDR
+	dec B
+	jr nz, .blank_loop
+
+	ret

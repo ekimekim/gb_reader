@@ -1,6 +1,7 @@
 include "macros.asm"
 include "vram.asm"
 include "ioregs.asm"
+include "longcalc.asm"
 
 SECTION "Graphics staging area 1", WRAMX[$D000]
 StagingData::

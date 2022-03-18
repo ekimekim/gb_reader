@@ -25,7 +25,7 @@ tests: testroms
 	tools/runtests
 
 include/assets/varfont.asm: assets/varfont.png tools/generate_var_masks.py
-	python tools/generate_var_masks.py assets/varfont.png > $@
+	python tools/generate_var_masks.py assets/varfont.png assets/varfont-widths.json > $@
 
 include/assets/.uptodate: $(ASSETS) tools/assets_to_asm.py include/assets/varfont.asm
 	python tools/assets_to_asm.py assets/ include/assets/

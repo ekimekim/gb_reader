@@ -6,6 +6,7 @@ Char width is defined as 1 pixel more than the right-most on pixel in the char.
 
 The output format is a char size table + a list of char tables corresponding to each char in the file.
 The char size table is a list of 1 byte per char indicating how many pixels wide it is.
+Each byte contains the size * 32 (ie. size in the top 3 bits). This helps with the code.
 It is followed by padding such that the char table list is 256-byte aligned.
 Each char table is 128 bytes and contains 8 char renditions, one for each possible
 "start bit" from 0 to 7. Each rendition is split into an 8-byte first tile and an 8-byte
@@ -38,12 +39,16 @@ however, in later renditions it is shifted right, eg. rendition 6:
 	00000000 10000000
 	00000000 10000000
 	00000000 00000000
+
+Optionally, will write char size table (as raw widths, not multiplied by 32) as a JSON list
+to given filepath.
 """
 
+import json
 from PIL import Image
 
 
-def main(filepath):
+def main(filepath, output_widths=None):
 	image = Image.open(filepath)
 
 	image = image.convert('1')
@@ -56,11 +61,15 @@ def main(filepath):
 		for rendition in range(8):
 			tables += render_rendition(pixels, rendition) # returns 16-byte rendition as list of ints
 
-	data = sizes + [0] * (256 - len(sizes)) + tables
+	data = [32 * s for s in sizes] + [0] * (256 - len(sizes)) + tables
 	assert len(data) < 2**14
 	for byte in data:
 		assert 0 <= byte < 256
 		print "db {}".format(byte)
+
+	if output_widths:
+		with open(output_widths, 'w') as f:
+			json.dump(f, sizes)
 
 
 def image_to_chars(image):
@@ -80,12 +89,13 @@ def extract_char(image, base_y):
 		for x in range(8):
 			pixel = image.getpixel((x, y))
 			value = 0 if pixel == 255 else 1
-			if value:
+			if value and x > max_x:
 				max_x = x
 			row = (row << 1) + value
 		tile.append(row)
 	# add 1 to max_x as we're going from 0-based coord to width, but also add 1 for char padding
-	return max_x + 2, tile
+	# if a char is max width of 7, sacrifice padding.
+	return min(max_x + 2, 7), tile
 
 
 def render_rendition(pixels, rendition):

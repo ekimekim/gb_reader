@@ -1,32 +1,16 @@
 
 SECTION "Test text data", ROMX[$4000], BANK[2]
 
-Line: MACRO
-	db "\1"
-	db 0
-ENDM
-
-;     01234567890123456789
-	db 0
-	Line "Call me Ishmael."
-	Line "Several years ago,"
-	Line "nevermind how long"
-	Line "precisely, having"
-	Line "little to no money"
-	Line "in my purse and"
-	Line "nothing to"
-	Line "particularly"
-	Line "interest me on"
-	Line "shore, I thought I"
-	Line "would <max len line>"
-	Line "sail around a bit"
-	Line "and see the watery"
-	Line "part of the world."
-	Line "It is a way I have"
-	Line "of driving off the"
-	Line "spleen and"
-	Line "reinvigorating the"
-	Line "circulation."
+	db "Call me Ishmael. Several years ago,", 0
+	db "nevermind how long precisely,", 0
+	db "having little", 0
+	db "to no money in my purse and", 0
+	db "nothing to particularly", 0
+	db "interest me on shore, I thought I", 0
+	db "would sail around a bit", 0
+	db "and see the watery part of the world.", 0
+	db "It is a way I have of driving off the", 0
+	db "spleen and reinvigorating the circulation.", 0
 REPT 32
 	db 0
 ENDR

@@ -1,6 +1,7 @@
 include "hram.asm"
 include "ioregs.asm"
 include "macros.asm"
+include "vram.asm" ; TEMP
 
 SECTION "Font data", ROMX[$4000], BANK[1]
 
@@ -20,18 +21,22 @@ RenderScreen::
 	; First 10 lines go into first staging area
 	ld A, Bank(StagingData)
 	ld [CGBWRAMBank], A
-	ld HL, StagingData
+	xor A ; TEMP
+	ld [CGBVRAMBank], A ; TEMP
+	ld HL, BaseTileMap ;TEMP StagingData
 REPT 10
 	call RenderLine
 ENDR
 	; Second 10 lines go into second staging area
 	ld A, Bank(StagingData2)
 	ld [CGBWRAMBank], A
-	ld HL, StagingData2
+	ld A, 1 ; TEMP
+	ld [CGBVRAMBank], A ; TEMP
+	ld HL, BaseTileMap ;TEMP StagingData2
 REPT 10
 	call RenderLine
 ENDR
-	call CopyStagingData
+;TEMP	call CopyStagingData
 	ret
 
 

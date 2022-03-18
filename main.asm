@@ -32,7 +32,7 @@ Start::
 	; Enable graphics
 	ld A, [LCDControl]
 	or %10000000
-	ld [LCDControl], A
+;TEMP	ld [LCDControl], A
 
 	; Disable all interrupts but enable interrupt flag.
 	; Interrupts will be selectively enabled as needed.

@@ -35,9 +35,12 @@ Start::
 	ld [LCDControl], A
 
 	; Disable all interrupts but enable interrupt flag.
-	; This makes halt a true halt forever.
+	; Interrupts will be selectively enabled as needed.
 	xor A
 	ld [InterruptsEnabled], A
 	ei
+
+	; Display initial screen
+	call ReadScreen
 
 	jp HaltForever

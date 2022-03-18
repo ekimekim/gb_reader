@@ -1,5 +1,6 @@
 *.gb
 *.sym
 *.o
+*.sav
 
 include/assets/*

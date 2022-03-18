@@ -1,5 +1,6 @@
 include "hram.asm"
 include "ioregs.asm"
+include "macros.asm"
 
 SECTION "Font data", ROMX[$4000], BANK[1]
 
@@ -14,6 +15,8 @@ SECTION "Text rendering methods", ROM0
 ; Renders 20 lines from DE to the staging data area.
 ; Note: Clobbers loaded WRAM and ROM banks.
 RenderScreen::
+	ld A, Bank(FontWidths)
+	SetROMBank
 	; First 10 lines go into first staging area
 	ld A, Bank(StagingData)
 	ld [CGBWRAMBank], A
@@ -28,6 +31,7 @@ ENDR
 REPT 10
 	call RenderLine
 ENDR
+	call CopyStagingData
 	ret
 
 
@@ -47,7 +51,7 @@ RenderLine:
 	ld A, [DE] ; load character
 	inc DE
 	sub 32 ; characters from DE are ascii, but table indexes start at char 32 (space)
-	jr nc, .newline ; if char < 32, we've hit end of line, break.
+	jp c, .newline ; if char < 32, we've hit end of line, break.
 	push DE
 
 	; Grab the char width. This is easier to do now so we can reuse DE.
@@ -77,6 +81,7 @@ RenderLine:
 REPT 8
 	; get pixels for row
 	ld A, [DE]
+	inc DE
 	; combine into HL via bitwise OR
 	or [HL]
 	; write back to HL twice - each row is repeated in order to set high and low bits.
@@ -111,6 +116,7 @@ ENDR
 REPT 8
 	; get pixels for row
 	ld A, [DE]
+	inc DE
 	; write to HL twice, see above
 	ld [HL+], A
 	ld [HL+], A
@@ -137,6 +143,7 @@ ENDR
 REPT 8
 	; get pixels for row
 	ld A, [DE]
+	inc DE
 	; write to HL twice, see above
 	ld [HL+], A
 	ld [HL+], A
@@ -161,6 +168,7 @@ ENDR
 	ld A, [Scratch]
 	and A ; set z if 0
 	ret z ; if we've written to all tiles, we're done
+	ld B, A
 	xor A
 
 .blank_loop

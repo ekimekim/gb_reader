@@ -63,7 +63,7 @@ GraphicsInit::
 .break
 
 	; background only, unsigned tilemap. Don't turn it on yet.
-	ld A, %0001001
+	ld A, %00010001
 	ld [LCDControl], A
 
 	ret

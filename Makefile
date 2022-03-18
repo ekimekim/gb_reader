@@ -11,7 +11,7 @@ RELEASEOBJS := $(addprefix build/release/,$(OBJS))
 INCLUDES := $(wildcard include/*.asm)
 ASSETS := $(shell find assets/ -type f)
 TESTS := $(wildcard tests/*.py)
-FIXARGS :=
+FIXARGS := -C -m 0x1b -r 1
 
 all: build/release/rom.gb
 

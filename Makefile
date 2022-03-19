@@ -3,7 +3,8 @@
 .SUFFIXES: .asm .o .gb
 .PHONY: bgb clean debug tests testroms
 
-NAME := untitled
+NAME := reader
+TEXT := test.txt
 ASMS := $(wildcard *.asm)
 OBJS := $(ASMS:.asm=.o)
 DEBUGOBJS := $(addprefix build/debug/,$(OBJS))
@@ -25,9 +26,12 @@ tests: testroms
 	tools/runtests
 
 include/assets/varfont.asm: assets/varfont.png tools/generate_var_masks.py
-	python tools/generate_var_masks.py assets/varfont.png assets/varfont-widths.json > $@
+	python tools/generate_var_masks.py assets/varfont.png --output-widths=build/varfont-widths.json > $@
 
-include/assets/.uptodate: $(ASSETS) tools/assets_to_asm.py include/assets/varfont.asm
+include/assets/text.asm: include/assets/varfont.asm tools/generate_text.py $(TEXT)
+	python tools/generate_text.py build/varfont-widths.json < "$(TEXT)" > "$@"
+
+include/assets/.uptodate: $(ASSETS) tools/assets_to_asm.py include/assets/varfont.asm include/assets/text.asm
 	python tools/assets_to_asm.py assets/ include/assets/
 	touch $@
 

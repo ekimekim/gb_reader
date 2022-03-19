@@ -69,7 +69,7 @@ def main(filepath, output_widths=None):
 
 	if output_widths:
 		with open(output_widths, 'w') as f:
-			json.dump(f, sizes)
+			f.write(json.dumps(sizes) + '\n')
 
 
 def image_to_chars(image):

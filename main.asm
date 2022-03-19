@@ -1,6 +1,9 @@
 include "debug.asm"
 include "ioregs.asm"
 
+; Text defines its own sections
+include "assets/text.asm"
+
 Section "Core Stack", WRAM0
 
 CoreStackBase:

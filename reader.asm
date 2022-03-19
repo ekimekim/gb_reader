@@ -83,8 +83,8 @@ ReadScreen::
 	ld L, A
 	; Write to WRAM
 	ld DE, ReadData
-	; Write 20 lines
-	ld B, 20
+	; Write 18 lines
+	ld B, 18
 
 .loop
 	ld A, [HL]

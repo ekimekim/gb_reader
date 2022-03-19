@@ -4,4 +4,4 @@
 *.sav
 
 include/assets/*
-assets/varfont-widths.json
+build/*

@@ -12,7 +12,7 @@ include "assets/varfont.asm"
 SECTION "Text rendering methods", ROM0
 
 
-; Renders 20 lines from DE to the staging data area.
+; Renders 18 lines from DE to the staging data area.
 ; Note: Clobbers loaded WRAM and ROM banks.
 RenderScreen::
 	ld A, Bank(FontWidths)
@@ -21,14 +21,14 @@ RenderScreen::
 	ld A, Bank(StagingData)
 	ld [CGBWRAMBank], A
 	ld HL, StagingData
-REPT 10
+REPT 9
 	call RenderLine
 ENDR
 	; Second 10 lines go into second staging area
 	ld A, Bank(StagingData2)
 	ld [CGBWRAMBank], A
 	ld HL, StagingData2
-REPT 10
+REPT 9
 	call RenderLine
 ENDR
 	call CopyStagingData

@@ -84,7 +84,7 @@ def process_lines(widths, input):
 			yield word
 			line_pos += length
 		yield '\0'
-	# Book ends with 20 blank lines as padding.
+	# Book ends with \x01 mark + 20 blank lines as padding.
 	yield '\0' * 20
 
 

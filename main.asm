@@ -1,9 +1,6 @@
 include "debug.asm"
 include "ioregs.asm"
 
-; Text defines its own sections
-include "assets/text.asm"
-
 Section "Core Stack", WRAM0
 
 CoreStackBase:
@@ -45,5 +42,8 @@ Start::
 
 	; Display initial screen
 	call ReadScreen
+	; Then scroll it by 5 lines, as a test
+	ld C, 5
+	call AdvanceScreen
 
 	jp HaltForever

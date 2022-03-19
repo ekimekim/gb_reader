@@ -3,6 +3,9 @@ include "macros.asm"
 include "hram.asm"
 include "ioregs.asm"
 
+; text.asm defines its own SECTIONs in ROMX
+include "assets/text.asm"
+
 ; TODO this should be SRAM but bgb won't allow it?
 SECTION "Reader state", WRAM0
 
@@ -70,6 +73,58 @@ SRAMInit:
 	Copy
 
 	ret
+
+
+; Adjusts screen position forward by C lines.
+; The result is clamped to end of book.
+AdvanceScreen::
+	; Ensure correct bank is loaded, and save it in B
+	ld A, [ReadTailBank]
+	ld B, A
+	SetROMBank
+
+	; Load ReadTail into HL
+	ld A, [ReadTailAddr]
+	ld H, A
+	ld A, [ReadTailAddr+1]
+	ld L, A
+
+.loop
+	ld A, [HL+]
+	inc A ; set z if A = ff, ie. next bank
+	jr z, .advance_bank
+	dec A
+	dec A ; set z if A = 1, ie. EOF
+	jr z, .eof
+	inc A ; set z if A = 0, ie. newline
+	jr nz, .loop ; if not newline, loop
+	dec C ; count a line
+	jr nz, .loop
+
+.done
+	; save result bank and addr
+	ld A, B
+	ld [ReadTailBank], A
+	ld A, H
+	ld [ReadTailAddr], A
+	ld A, L
+	ld [ReadTailAddr+1], A
+
+	call ReadScreen ; refresh screen for new position
+	ret
+
+.advance_bank
+	inc B
+	ld A, B
+	SetROMBank
+	ld HL, $4000
+	jr .loop
+
+.eof
+	; adjust HL back 1, since we previously incremented it past the EOF marker
+	dec HL
+	; and stop here, even if we have more lines to do
+	jr .done
 
 
 ReadScreen::

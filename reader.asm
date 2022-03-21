@@ -6,6 +6,10 @@ include "ioregs.asm"
 ; text.asm defines its own SECTIONs in ROMX
 include "assets/text.asm"
 
+SECTION "Text data sentinel", ROM0[$3fff]
+	; This is used as a marker so we know when we've scrolled backwards off the start of a bank
+	db $ff
+
 ; TODO this should be SRAM but bgb won't allow it?
 SECTION "Reader state", WRAM0
 
@@ -123,6 +127,72 @@ AdvanceScreen::
 .eof
 	; adjust HL back 1, since we previously incremented it past the EOF marker
 	dec HL
+	; and stop here, even if we have more lines to do
+	jr .done
+
+
+; As AdvanceScreen but moves backwards. Will not scroll past start of book.
+RollbackScreen::
+	; Ensure correct bank is loaded, and save it in B
+	ld A, [ReadTailBank]
+	ld B, A
+	SetROMBank
+
+	; Load ReadTail into HL
+	ld A, [ReadTailAddr]
+	ld H, A
+	ld A, [ReadTailAddr+1]
+	ld L, A
+
+	; we start just before a newline, which we don't want to count.
+	; so we want to go 1 more newline than lines requested.
+	inc C
+
+.loop
+	dec HL
+.loop_no_dec
+	ld A, [HL]
+	inc A ; set z if A = ff, ie. prev bank
+	jr z, .rollback_bank
+	dec A ; set z if A = 0, ie. newline
+	jr nz, .loop ; if not newline, loop
+	dec C ; count a line
+	jr nz, .loop
+
+.done
+	; at this point HL points at the newline immediately before
+	; the position we want. So we inc HL to put it in the right place.
+	inc HL
+
+	; save result bank and addr
+	ld A, B
+	ld [ReadTailBank], A
+	ld A, H
+	ld [ReadTailAddr], A
+	ld A, L
+	ld [ReadTailAddr+1], A
+
+	call ReadScreen ; refresh screen for new position
+	ret
+
+.rollback_bank
+	dec B
+	ld A, B
+	cp TEXT_START_BANK ; set c if A < TEXT_START_BANK, ie. if we're at start of text
+	jr c, .start
+	; otherwise set bank and keep going
+	SetROMBank
+	; seek backwards until we find $ff marker
+	ld HL, $7fff
+.rollback_loop
+	ld A, [HL-]
+	inc A ; set z if A = ff
+	jr nz, .rollback_loop
+	jr .loop_no_dec
+
+.start
+	; adjust bank forward 1, since we previously decremented it past the start bank
+	inc B
 	; and stop here, even if we have more lines to do
 	jr .done
 

@@ -17,6 +17,7 @@ def main(widths_file, start_bank=2, plaintext=False):
 	with open(widths_file) as f:
 		widths = json.load(f)
 
+	print 'TEXT_START_BANK EQU {}'.format(start_bank)
 	for bank, data in process_text(widths, sys.stdin, start_bank):
 		print 'SECTION "Text Data Bank {bank}", ROMX[$4000], BANK[{bank}]'.format(bank=bank)
 		if plaintext:

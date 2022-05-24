@@ -15,6 +15,7 @@ SECTION "Text rendering methods", ROM0
 ; Renders 18 lines from DE to the staging data area.
 ; Note: Clobbers loaded WRAM and ROM banks.
 RenderScreen::
+	call RenderBlockNumber
 	ld A, Bank(FontWidths)
 	SetROMBank
 	; First 10 lines go into first staging area
@@ -32,6 +33,46 @@ REPT 9
 	call RenderLine
 ENDR
 	call CopyStagingData
+	ret
+
+
+; Render the current block number (bank number, bits 7-14 of addr) to the block display digits.
+; Note digits are backwards (ie. little endian) in sprite table and digit N is tile number 240+N.
+; Preserves DE.
+RenderBlockNumber:
+	ld A, [ReadTailAddr+1]
+	ld B, A
+	ld A, [ReadTailAddr]
+	; rotate AB left 2x, so that A = bits 7-14 of ReadTailAddr
+REPT 2
+	rl B
+	rla
+ENDR
+	ld B, A ; save a copy for later
+	; load bottom half of A as last digit
+	and $0f
+	add 240
+	ld [StagingSpriteData+2], A
+	; load top half of A as second last digit
+	ld A, B
+	and $f0
+	swap A
+	add 240
+	ld [StagingSpriteData+4+2], A
+
+	ld A, [ReadTailBank]
+	ld B, A
+	; load bottom half of A as second digit
+	and $0f
+	add 240
+	ld [StagingSpriteData+8+2], A
+	; load top half of A as first digit
+	ld A, B
+	and $f0
+	swap A
+	add 240
+	ld [StagingSpriteData+12+2], A
+
 	ret
 
 

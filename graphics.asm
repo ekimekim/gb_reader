@@ -3,6 +3,17 @@ include "vram.asm"
 include "ioregs.asm"
 include "longcalc.asm"
 
+SECTION "Block digit data", ROM0
+
+BlockDigitTileData:
+include "assets/minihex.asm"
+BlockDigitTileDataEnd:
+
+SECTION "Sprite staging area", WRAM0
+
+StagingSpriteData::
+	ds 4 * 4 ; 4 sprites
+
 SECTION "Graphics staging area 1", WRAMX[$D000]
 StagingData::
 	ds 16 * 20 * 9 ; 9 rows of tiles
@@ -13,7 +24,7 @@ StagingData2::
 SECTION "Graphics methods", ROM0
 
 GraphicsInit::
-	; Palette init: 0 is white, all others are black
+	; Palette init: 0 is white, all others are black.
 	ld A, $80 ; auto-increment
 	ld [TileGridPaletteIndex], A
 	ld A, $ff
@@ -26,6 +37,48 @@ GraphicsInit::
 	ld [TileGridPaletteData], A
 	ld [TileGridPaletteData], A
 	ld [TileGridPaletteData], A
+
+	; For sprites, 0 and 1 are white, 2 and 3 are black.
+	; This lets us pick between 0 (transparent) and 1 (solid white)
+	ld A, $80 ; auto-increment
+	ld [SpritePaletteIndex], A
+	ld A, $ff
+	ld [SpritePaletteData], A
+	ld [SpritePaletteData], A
+	ld [SpritePaletteData], A
+	ld [SpritePaletteData], A
+	xor A
+	ld [SpritePaletteData], A
+	ld [SpritePaletteData], A
+	ld [SpritePaletteData], A
+	ld [SpritePaletteData], A
+
+	; Load the 16 block digits into tiles 240-255
+	ld HL, BlockDigitTileData
+	ld BC, BlockDigitTileDataEnd - BlockDigitTileData
+	ld DE, BaseTileMap + 16 * 240
+	LongCopy
+
+	; Init sprites for block digits
+	; Note that sprites are in reverse order to digits, because lower-index sprites
+	; will override higher ones and we want right digits to override left.
+	ld HL, StagingSpriteData
+	ld B, 4
+	ld C, 156+8 ; X coord, starting at X=15
+.spriteloop
+	ld A, 136+16 ; set Y=136
+	ld [HL+], A
+	ld A, C
+	ld [HL+], A ; set X
+	ld A, 240
+	ld [HL+], A ; set to 0 digit for now
+	xor A ; flags = 0: palette 0, bank 0, no other flags
+	ld [HL+], A
+	ld A, C
+	sub 4
+	ld C, A ; dec X coord by 4. we expect overlap.
+	dec B
+	jr nz, .spriteloop
 
 	; Map each background tile to a unique tilemap texture.
 	; Because we only have 256 options, we need to use the CGB second bank
@@ -62,8 +115,8 @@ GraphicsInit::
 	jr .loopstart
 .break
 
-	; background only, unsigned tilemap. Don't turn it on yet.
-	ld A, %00010001
+	; background + sprites, unsigned tilemap. Don't turn it on yet.
+	ld A, %00010010
 	ld [LCDControl], A
 
 	ret
@@ -98,6 +151,7 @@ CopyStagingData::
 	; We can do this in 3 frames, copying 1920 bytes each frame.
 	; Note the middle frame will be split in two as we need to stop to switch banks,
 	; so we do 4 DMAs of 1920, 960, 960, 1920.
+	; In the final frame we also update the block-number sprites.
 
 	halt ; wait for vblank
 	ld A, 119 ; copy 1920 bytes (120x16)
@@ -128,5 +182,11 @@ CopyStagingData::
 	halt ; wait for next vblank
 	ld A, 119
 	ld [CGBDMAControl], A ; final copy, finishing second bank
+
+	; Sprite data. Not worth DMAing here since it's just 16 bytes.
+	ld B, 16
+	ld HL, StagingSpriteData
+	ld DE, SpriteTable
+	Copy
 
 	ret

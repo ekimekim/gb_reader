@@ -20,9 +20,9 @@ SaveMagic:
 ; Tail refers to the position at the start of the most-back rendered line.
 ; Each is a pair consisting of a bank byte and an addr. Addr is assumed to always
 ; be a ROMX addr (ie. 0x4000-0x7fff).
-ReadTailBank:
+ReadTailBank::
 	ds 1
-ReadTailAddr:
+ReadTailAddr::
 	ds 2
 
 SECTION "Reader RAM", WRAM0

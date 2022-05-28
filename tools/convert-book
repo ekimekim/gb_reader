@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ebook-convert "$1" "${2}.txt" --asciiize --max-line-length 0

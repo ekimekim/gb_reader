@@ -64,9 +64,9 @@ GraphicsInit::
 	; will override higher ones and we want right digits to override left.
 	ld HL, StagingSpriteData
 	ld B, 4
-	ld C, 156+8 ; X coord, starting at X=15
+	ld C, 155+8 ; X coord, starting at X=155 (5px off right edge)
 .spriteloop
-	ld A, 136+16 ; set Y=136
+	ld A, 136+16 ; set Y=136 (8px off bottom edge)
 	ld [HL+], A
 	ld A, C
 	ld [HL+], A ; set X

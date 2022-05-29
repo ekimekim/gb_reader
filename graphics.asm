@@ -190,3 +190,11 @@ CopyStagingData::
 	Copy
 
 	ret
+
+
+; Hacky - just toggle the sprite display flag
+ToggleBlockNumbers::
+	ld A, [LCDControl]
+	xor %00000010
+	ld [LCDControl], A
+	ret

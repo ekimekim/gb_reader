@@ -99,6 +99,7 @@ def split_word(widths, word, LINE_MAX):
 		if length + char_length + DASH_LEN > LINE_MAX:
 			split_at = i
 			break
+		length += char_length
 	else:
 		assert False, "word was too long but counting characters wasn't"
 	assert 0 < split_at < len(word)

@@ -6,4 +6,4 @@ NAME="$1"
 BOOK="$2"
 
 tools/convert-book "$BOOK" build/text
-make TEXT=build/text NAME="$NAME" copy-rom
+make TEXT=build/text.txt NAME="$NAME" copy

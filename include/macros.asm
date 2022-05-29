@@ -70,6 +70,18 @@ SetRAMBank: MACRO
 	ld [$4000], A
 	ENDM
 
+; Enable/disable SRAM access. You should disable it when not in use to prevent
+; data corruption on power off.
+; Clobbers A, flags
+EnableSRAM: MACRO
+	ld A, $0a
+	ld [$1000], A
+ENDM
+DisableSRAM: MACRO
+	xor A
+	ld [$1000], A
+ENDM
+
 ; Halts compilation if condition \1 is true with message \2
 FailIf: MACRO
 IF (\1)

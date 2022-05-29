@@ -11,21 +11,28 @@ SECTION "Text data sentinel", ROM0[$3fff]
 	db $ff
 
 ; TODO this should be SRAM but bgb won't allow it?
-SECTION "Reader state", WRAM0
+SECTION "Reader state", SRAM
 
 ; These 8 bytes must match "gbreader". If they don't, we assume SRAM is uninitialized.
 SaveMagic:
 	ds 8
 
+; Saved copy of ReadTailBank/Addr.
+SaveReadTailBank:
+	ds 1
+SaveReadTailAddr:
+	ds 2
+
+SECTION "Reader RAM", WRAM0
+
 ; Tail refers to the position at the start of the most-back rendered line.
 ; Each is a pair consisting of a bank byte and an addr. Addr is assumed to always
 ; be a ROMX addr (ie. 0x4000-0x7fff).
+; This is a cached copy of the canonical values which are in SaveReadTailBank/Addr.
 ReadTailBank::
 	ds 1
 ReadTailAddr::
 	ds 2
-
-SECTION "Reader RAM", WRAM0
 
 ; Data is copied from the ROM to here so that it can be rendered.
 ; Since the thinnest character is 2 bits, the max chars in two lines is 4 * 20 * 18
@@ -40,7 +47,20 @@ SaveMagicCheck:
 ; Initialize graphics and other state.
 ; Assumes screen is off.
 ReadInit::
+	EnableSRAM
+
+	; check and maybe init saved state
 	call SRAMInit
+
+	; load saved state
+	ld A, [SaveReadTailBank]
+	ld [ReadTailBank], A
+	ld A, [SaveReadTailAddr]
+	ld [ReadTailAddr], A
+	ld A, [SaveReadTailAddr+1]
+	ld [ReadTailAddr+1], A
+
+	DisableSRAM
 	ret
 
 
@@ -65,17 +85,30 @@ SRAMInit:
 .magic_failed
 	; init tail to (2, $4000)
 	ld A, 2
-	ld [ReadTailBank], A
+	ld [SaveReadTailBank], A
 	ld A, $40
-	ld [ReadTailAddr], A
+	ld [SaveReadTailAddr], A
 	xor A
-	ld [ReadTailAddr+1], A
+	ld [SaveReadTailAddr+1], A
 	; write magic. we only do this once sram is initialized to prevent races.
 	ld HL, SaveMagicCheck
 	ld DE, SaveMagic
 	ld B, 8
 	Copy
 
+	ret
+
+
+; Save contents of ReadTail to SaveReadTail, clobbers A.
+SaveState:
+	EnableSRAM
+	ld A, [ReadTailBank]
+	ld [SaveReadTailBank], A
+	ld A, [ReadTailAddr]
+	ld [SaveReadTailAddr], A
+	ld A, [ReadTailAddr+1]
+	ld [SaveReadTailAddr+1], A
+	DisableSRAM
 	ret
 
 
@@ -113,6 +146,7 @@ AdvanceScreen::
 	ld [ReadTailAddr], A
 	ld A, L
 	ld [ReadTailAddr+1], A
+	call SaveState
 
 	call ReadScreen ; refresh screen for new position
 	ret
@@ -171,6 +205,7 @@ RollbackScreen::
 	ld [ReadTailAddr], A
 	ld A, L
 	ld [ReadTailAddr+1], A
+	call SaveState
 
 	call ReadScreen ; refresh screen for new position
 	ret
